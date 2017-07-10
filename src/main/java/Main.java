@@ -8,6 +8,7 @@ import java.nio.charset.Charset;
 import java.util.HashMap;
 import java.util.List;
 import java.util.Map;
+import java.util.Objects;
 
 import com.google.gson.Gson;
 import com.google.gson.stream.JsonReader;
@@ -19,16 +20,32 @@ public class Main {
 		
 		new Thread() {
 			public void run() {
+				String threadActor = null;
 				while (true) {
 					try {
 						
 						if(socket.getInputStream().available()>0) {
 							final Map<String, Object> readPayload = main.readPayload(socket.getInputStream());
+							
 							if(readPayload.containsKey("tabs")) {
-								final String threadActor = (String) ((List<Map<String, Object>>)readPayload.get("tabs")).get(0).get("actor");
-								System.out.println("threadActor=" + threadActor);
-								main.attachToThread(socket.getOutputStream(), threadActor);
+								String actor = (String) ((List<Map<String, Object>>)readPayload.get("tabs")).get(0).get("actor");
+								System.out.println("actor=" + actor);
+								main.attachToThread(socket.getOutputStream(), actor);
+								main.reload(socket.getOutputStream(), actor);
+								
 							}
+							
+							if(Objects.equals(readPayload.get("type"), "tabAttached")) {
+								threadActor = (String) readPayload.get("threadActor");
+								//main.getSources(socket.getOutputStream(), (String)readPayload.get("threadActor"));
+							}
+							
+							System.out.println("type: "+ readPayload.get("type"));
+							main.getSources(socket.getOutputStream(), threadActor);
+//							if(Objects.equals(readPayload.get("type"), "tabNavigated")) {
+//								main.getSources(socket.getOutputStream(), threadActor);
+//							}
+							
 							System.out.println(readPayload);
 						}
 						
@@ -49,6 +66,8 @@ public class Main {
 //		System.out.println(main.readPayload(socket.getInputStream()));
 
 	}
+
+	
 
 	public Socket connect(final String hostname, final int port) throws UnknownHostException, IOException {
 		final Socket socket = new Socket(hostname, port);
@@ -78,6 +97,17 @@ public class Main {
 	private void attachToThread(final OutputStream outputStream, final String actor) throws IOException {
 		sendMessage(outputStream, actor, "attach");
 	}
+	
+	protected void reload(OutputStream outputStream, String actor) throws IOException {
+		sendMessage(outputStream, actor, "reload");
+	}
+	
+	private void getSources(final OutputStream outputStream, final String actor) throws IOException {
+		sendMessage(outputStream, actor, "sources");
+	}
+	
+	
+	
 	private void listTabs(final OutputStream outputStream) throws IOException {
 		sendMessage(outputStream, "root", "listTabs");
 	}
